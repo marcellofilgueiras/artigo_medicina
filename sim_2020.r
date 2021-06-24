@@ -24,6 +24,7 @@ sistema_mortalidade_ods_2020_tidy<- sistema_mortalidade_ods_2020_raw %>%
                 "escolaridade" = "esc",
                 "escolaridade_2010" = "esc2010",
                 "ocupacao"= "ocup",
+                "local_ocorrencia" = "lococor",
                 "linha_a" = "linhaa",
                 "linha_b"= "linhab",
                 "linha_c" = "linhac",
@@ -31,7 +32,10 @@ sistema_mortalidade_ods_2020_tidy<- sistema_mortalidade_ods_2020_raw %>%
                 "linha_ii" = "linhaii",
                 "causa_basica" = "causabas",
                 "data_atestado"= "dtatestado") %>%
-  mutate(tipo_obito=case_when(
+  mutate(
+        data_obito = lubridate::dmy(data_obito),
+        #hora_obito =  lubridate::hm(hora_obito), error: "Some strings failed to parse, or all strings are NAs "
+        tipo_obito = case_when(
             tipo_obito == "1"~ "Fetal",
             tipo_obito == "2"~ "Não Fetal",
             TRUE ~ as.character(tipo_obito)),
@@ -41,9 +45,26 @@ sistema_mortalidade_ods_2020_tidy<- sistema_mortalidade_ods_2020_raw %>%
             raca_cor == "3" ~ "Amarela",
             raca_cor == "4" ~ "Parda",
             raca_cor == "5" ~ "Indígena",
-            TRUE ~ as.character(raca_cor))
-  )
-
+            TRUE ~ as.character(raca_cor)),
+        estado_civil = case_when(
+            estado_civil== "1" ~ "Solteiro(a)",
+            estado_civil == "2" ~ "Casado(a)",
+            estado_civil == "3" ~ "Viúvo(a)",
+            estado_civil == "4" ~ "Separado(a)",
+            estado_civil == "5" ~ "União consensual",
+            #estado_civil == "9" ~ NA, "cant put a logical into a character vector"
+            TRUE ~ as.character(estado_civil)),
+        cirurgia = case_when(
+            cirurgia == "1" ~ "Sim",
+            cirurgia == "2" ~ "Não",
+            TRUE ~ as.character(cirurgia)),
+        local_ocorrencia = case_when(
+            local_ocorrencia == "1" ~ "Hospital",
+            local_ocorrencia == "2" ~ "Outro estabelecimento de saúde",
+            local_ocorrencia == "3" ~ "Domicílio",
+            local_ocorrencia == "4" ~ "Via pública",
+            local_ocorrencia == "5" ~ "Outros",
+            TRUE ~ as.character(local_ocorrencia)))
 
   cle
   count(CAUSABAS) %>%
@@ -52,18 +73,18 @@ sistema_mortalidade_ods_2020_tidy<- sistema_mortalidade_ods_2020_raw %>%
 
 #Tidying ----------------------------------------------------
 
-
 #Filtros e Classificações -----------------------------------
 
-cids_trens_gastricos <- str_c("K351", "K350", "K359", "K37", "K381", "K382",
-                          "K389", "K383", "K380", "Q206", "D121", "D373",
-                          "C181", "K388", "K36", sep = "|")%>%
-  regex()
-
-cids_trens_gastricos2 <- str_c("K35\\.1", "K35\\.0", "K35\\.9", "K37", "K38\\.1", "K38\\.2",
-                              "K38\\.9", "K38\\.3", "K38\\.0", "Q20\\.6", "D12\\.1", "D37\\.3",
-                              "C18\\.1", "K38\\.8", "K36", sep = "|")%>%
-  regex()
+  regex_cids<- paste("K35",
+                     "K36",
+                     "K37",
+                     "K38",
+                     "K8",
+                     "Q206",
+                     "D121",
+                     "D373",
+                     "C181",
+                     sep= "|")
 
 #Cid K80 é a de doenças das vias biliares
 
@@ -86,7 +107,6 @@ hernias_com_obstrução <- str("k46.0",
                           "k43.1",
                           "k45.1",
                           sep = "")
-
 
 criadora_de_cids<- function (x) {
   
