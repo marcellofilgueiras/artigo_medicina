@@ -4,6 +4,11 @@
 library(tidyverse)
 library(basedosdados)
 
+
+
+# Importing ---------------------------------------------------------------
+
+ 
 # Defina o seu projeto no Google Cloud
 set_billing_id("marcellosf")
 # Para carregar o dado direto no R
@@ -11,77 +16,80 @@ query_dicionario <- "SELECT * FROM `basedosdados.br_ms_sim.dicionario`"
 dicionario <- read_sql(query_dicionario)
 
 
-
-query_microdados <- " SELECT ano, data_obito, causa_basica, idade, linha_a, linha_b, linha_c, linha_d, linha_ii
+# Baixando somente colunas de interesse para pesquisa do Rafael
+query_microdados_rafael <- " SELECT ano, data_obito, causa_basica, idade, atestado
 FROM `basedosdados.br_ms_sim.microdados` 
-WHERE ano IN (2018,2019,2020,2021)"
+WHERE ano IN (2018,2019)"
 
-query_microdados_2020 <- " SELECT ano, data_obito, causa_basica, idade, linha_a, linha_b, linha_c, linha_d, linha_ii
+sim_microdados_rafael <- read_sql(query_microdados_rafael)
+
+#Verificando se tem 2020:  Não tem
+
+query_microdados_2020 <- " SELECT ano, data_obito, causa_basica, idade, atestado
 FROM `basedosdados.br_ms_sim.microdados` 
 WHERE ano = 2020
 LIMIT 100"
 
 sim_2020<- read_sql(query_microdados_2020)
-                  
-sim_microdados <- read_sql(query_microdados)
-
-regex_cids<- paste("K35",
-                   "K36",
-                   "K37",
-                   "K38",
-                   "K8",
-                   "Q206",
-                   "D121",
-                   "D373",
-                   "C181",
-                   sep= "|")
 
 
-#Contando Ano
 
-sim_microdados %>%
-  filter(str_detect(causa_basica, regex_cids))%>%
-  count(ano)
+#Filtros e Classificações -----------------------------------
 
-#Contando Causa Base
+#buscando algumas doenças específicas
 
-sim_microdados %>%
-  filter(str_detect(causa_basica, regex_cids))%>%
-  group_by(causa_basica)%>%
-  count(ano) %>%
-  ungroup()%>%
-  mutate(ano=as.numeric(ano))%>%
-  ggplot(aes(y= causa_basica, x= n, fill=as.factor(ano))) + geom_col(position="fill")
-
-
-#Cid K80 é a de doenças das vias biliares
-
-hernias_com_grangena <- str_c("K461",
-                              "K411",
-                              "K414",
-                              "K401",
-                              "K404",
-                              "K421",
-                              "K431",
-                              "K451",
-                              sep = "|")
-
-hernias_com_obstrução <- str("k46.0",
-                             "k41",
-                             "k41.4",
-                             "k40.1",
-                             "k40.4",
-                             "k42.1",
-                             "k43.1",
-                             "k45.1",
-                             sep = "")
+    regex_cids<- paste("K35",
+                       "K36",
+                       "K37",
+                       "K38",
+                       "K8",
+                       "Q206",
+                       "D121",
+                       "D373",
+                       "C181",
+                       sep= "|")
 
 
+hernias_regex<- paste("K461",
+                      "K411",
+                      "K414",
+                      "K401",
+                      "K404",
+                      "K421",
+                      "K431",
+                      "K451",
+                      sep = "|")
+        
+        cids_vetor<- c("K35", #trenss gastricos em geral
+                       "K36",
+                       "K37",
+                       "K38",
+                       "K8", # K80 é a de doenças das vias biliares
+                       "Q206",
+                       "D121",
+                       "D373",
+                       "C181")
+    
+    hernias_vetor<- c( "K461",
+                       "K411",
+                       "K414",
+                       "K401",
+                       "K404",
+                       "K421",
+                       "K431",
+                       "K451")
+    
+    
+    
+#Se estiver com saco cheio de digitar vários subgrupos de CIDs, use a função abaixo
+    
 criadora_de_cids<- function (x) {
   
   paste(x, c("1","2","3", "4", "5", "6","7","8","9"),
         sep = "", collapse = "|" )
 }
+
+#Cid K80 é a de doenças das vias biliares
 
 doenças = c("K80", "K81", "K82", "K83")
 
@@ -91,9 +99,19 @@ cid_rafael <- purrr::map_chr(doenças, criadora_de_cids)%>%
 
 
 
+# Filtrando
 
 
+sim_bdd_2018_filtro_causa_basica <- sim_microdados_rafael %>%
+  select (ano, data_obito, causa_basica, atestado) %>%
+  filter(causa_basica %in% cids_vetor|
+           causa_basica %in% hernias_vetor) %>%
+  mutate(mes = paste(str_sub(data_obito, 1,7),01, sep="-")%>%
+           lubridate::ymd(),
+         ano = as.double(ano))
 
+# Função não é necessária porque existe uma coluna chamada Atestado com todas as linhas =D
+# Poder da Base Tidy!
 
 filtradora_doenças <- function (x) {
   dplyr::filter(str_detect(LINHAA, x)|
@@ -106,61 +124,64 @@ filtradora_doenças <- function (x) {
                   str_detect(CAUSABAS_O, x))
 }
 
-doenças_rafael2 <- sistema_mortalidade_ods_2020_raw %>%
-  dplyr::filter(str_detect(LINHAA, x)|
-                  str_detect(LINHAB, x)|
-                  str_detect(LINHAC, x)|
-                  str_detect(LINHAD, x)|
-                  str_detect(LINHAII, x)|
-                  str_detect(CAUSABAS, x)|
-                  str_detect(CAUSAMAT, x)|
-                  str_detect(CAUSABAS_O, x))
 
-
-doenças_rafael <- sistema_mortalidade_ods_2020_raw %>%
-  filter( str_detect(LINHAA, cid_rafael)|
-            str_detect(LINHAB, cid_rafael)|
-            str_detect(LINHAC, cid_rafael)|
-            str_detect(LINHAD, cid_rafael)|
-            str_detect(LINHAII, cid_rafael)|
-            str_detect(CAUSABAS, cid_rafael)|
-            str_detect(CAUSAMAT, cid_rafael)|
-            str_detect(CAUSABAS_O, cid_rafael))
+# Verificando Características da base 
 
 
 
-trens_gastricos<- sistema_mortalidade_ods_2020_raw%>%
-  filter(str_detect(LINHAA, cids_trens_gastricos)|
-           str_detect(LINHAB, cids_trens_gastricos)|
-           str_detect(LINHAC, cids_trens_gastricos)|
-           str_detect(LINHAD, cids_trens_gastricos)|
-           str_detect(LINHAII, cids_trens_gastricos)|
-           str_detect(CAUSABAS, cids_trens_gastricos)|
-           str_detect(CAUSAMAT, cids_trens_gastricos)|
-           str_detect(CAUSABAS_O, cids_trens_gastricos)
-  )
+# VerificContando Ano
+
+sim_bdd_2020_filtro_causa_basica %>%
+  count(ano)
+
+#Contando Causa Base
+
+sim_bdd_2020_filtro_causa_basica %>%
+  group_by(causa_basica)%>%
+  count(ano) %>%
+  ungroup()%>%
+  mutate(ano=as.numeric(ano))%>%
+  ggplot(aes(y= causa_basica, x= n, fill=as.factor(ano))) + geom_col(position="fill")
 
 
-
-
-
-hernias_com_grangena_df<- sistema_mortalidade_ods_2020_raw%>%
-  filter(str_detect(LINHAA, hernias_com_grangena)|
-           str_detect(LINHAB, hernias_com_grangena)|
-           str_detect(LINHAC, hernias_com_grangena)|
-           str_detect(LINHAD, hernias_com_grangena)|
-           str_detect(LINHAII, hernias_com_grangena)|
-           str_detect(CAUSABAS, hernias_com_grangena)|
-           str_detect(CAUSAMAT, hernias_com_grangena)|
-           str_detect(CAUSABAS_O, hernias_com_grangena)
-  )
 
 
 
 #Modeling ---------------------------------------------------
 
 
+
 #Visualização -----------------------------------------------
+
+#"Número de Mortes desses trem gástrico por mês em 2020"
+
+sim_bdd_2020_filtro_causa_basica %>%
+  filter(causa_basica %in% cids_vetor) %>%
+  group_by(mes) %>%
+  count(causa_basica)%>%
+  tsibble::as_tsibble(index=mes, key = causa_basica) %>%
+  ggplot(aes(x=mes, y=n, fill= causa_basica)) + geom_col(color= "black") +
+  labs(title= "Número de Mortes desses trem gástrico por em 2018 a 2019",
+       caption = "OpenDataSus - Sistema Informatizado de Mortalidade - Dados Preliminares de 2020") +
+  scale_x_date( breaks= "1 month") +
+  theme_minimal() + theme(axis.text.x = element_text(face = "bold", 
+                                                     size = 10, angle = 90),
+                          plot.title = element_text(size = 16, face= "bold"))
+
+#"Número de Mortes por Hérnia por mês em 2020"
+
+sim_bdd_2020_filtro_causa_basica %>%
+  filter(causa_basica %in% hernias_vetor) %>%
+  group_by(mes) %>%
+  count(causa_basica)%>%
+  tsibble::as_tsibble(index=mes, key = causa_basica) %>%
+  ggplot(aes(x=mes, y=n, fill= causa_basica)) + geom_col(color= "black") +
+  labs(title= "Número de Mortes por Hérnia por mês em 2018 a 2019",
+       caption = "OpenDataSus - Sistema Informatizado de Mortalidade - Dados Preliminares de 2020") +
+  scale_x_date( breaks= "1 month") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(face = "bold", size = 10, angle = 90),
+        plot.title = element_text(size = 16, face= "bold"))
 
 
 #Exportação -------------------------------------------------
