@@ -25,12 +25,12 @@ sim_microdados_rafael <- read_sql(query_microdados_rafael)
 
 #Verificando se tem 2020:  Não tem
 
-query_microdados_2020 <- " SELECT ano, data_obito, causa_basica, idade, atestado
-FROM `basedosdados.br_ms_sim.microdados` 
-WHERE ano = 2020
-LIMIT 100"
+#query_microdados_2020 <- " SELECT ano, data_obito, causa_basica, idade, atestado
+#FROM `basedosdados.br_ms_sim.microdados` 
+#WHERE ano = 2020
+#LIMIT 100"
 
-sim_2020<- read_sql(query_microdados_2020)
+#sim_2020<- read_sql(query_microdados_2020)
 
 
 
@@ -185,6 +185,8 @@ sim_bdd_2020_filtro_causa_basica %>%
 
 
 #Exportação -------------------------------------------------
+
+
 
 
 
